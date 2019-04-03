@@ -7,7 +7,7 @@ from google.cloud import storage
 import uuid
 import pymysql
 import argparse
-
+import images
 from google.cloud import videointelligence
 
 
@@ -38,7 +38,8 @@ def get_shots(video_id):
     # args = parser.parse_args()
     #
     # analyze_shots(args.path)
-    analyze_shots(video_id + '.mp4')
+    shots = analyze_shots(video_id + '.mp4')
+    images.extract(video_id, shots)
 
     resp = flask.Response("Foo bar baz")
     resp.headers['Access-Control-Allow-Origin'] = '*'
@@ -55,13 +56,16 @@ def analyze_shots(path):
     result = operation.result(timeout=120)
     print('\nFinished processing.')
 
+    splitted_shots = list()
     for i, shot in enumerate(result.annotation_results[0].shot_annotations):
         start_time = (shot.start_time_offset.seconds +
                       shot.start_time_offset.nanos / 1e9)
         end_time = (shot.end_time_offset.seconds +
                     shot.end_time_offset.nanos / 1e9)
+        new_tuple = (start_time, end_time)
+        splitted_shots.append(new_tuple)
         print('\tShot {}: {} to {}'.format(i, start_time, end_time))
-
+    return splitted_shots
 
 if __name__ == '__main__':
     # This is used when running locally only. When deploying to Google App
