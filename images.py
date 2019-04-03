@@ -4,10 +4,10 @@ import os
 
 def extract(video_id, frames):
     # Read the video from specified path
-    cam = cv2.VideoCapture('Bucket//' + video_id + '.mp4')
+    cam = cv2.VideoCapture(os.path.join('Bucket', video_id + '.mp4'))
     try:
-        if not os.path.exists('Bucket//' + video_id):
-            os.makedirs('Bucket//' + video_id)
+        if not os.path.exists(os.path.join('Bucket', video_id)):
+            os.makedirs(os.path.join('Bucket', video_id))
     except OSError:
         print('Error: Creating directory of data')
 
@@ -15,16 +15,14 @@ def extract(video_id, frames):
     currentframe = 0
     needed_frames = get_frames_number(frames)
     counter = 0
-    print(needed_frames)
     while True:
         # reading from frame
         ret, frame = cam.read()
-        print('---------- ', ret, frame)
+        # print('---------- ', ret, frame)
         if ret:
-            print('current frame: ', currentframe)
             if currentframe in needed_frames:
                 # if video is still left continue creating images
-                name = './Bucket/' + video_id + '/' + str(counter) + '.jpg'
+                name = os.path.join('Bucket', video_id, str(counter) + '.jpg')
                 counter += 1
                 print('Creating...' + name)
                 # writing the extracted images

@@ -41,6 +41,13 @@ def get_shots(video_id):
     shots = analyze_shots(video_id + '.mp4')
     images.extract(video_id, shots)
 
+    dirs = os.listdir(os.path.join('Bucket', video_id))
+
+    # This would print all the files and directories
+    for file in dirs:
+        image_blob = bucket.blob(video_id + '/' + file)
+        image_blob.upload_from_filename(os.path.join('Bucket', video_id, file))
+
     resp = flask.Response("Foo bar baz")
     resp.headers['Access-Control-Allow-Origin'] = '*'
     return resp
@@ -66,6 +73,7 @@ def analyze_shots(path):
         splitted_shots.append(new_tuple)
         print('\tShot {}: {} to {}'.format(i, start_time, end_time))
     return splitted_shots
+
 
 if __name__ == '__main__':
     # This is used when running locally only. When deploying to Google App
