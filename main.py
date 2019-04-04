@@ -1,9 +1,6 @@
-import os
 import tempfile
-
 import cv2
-import flask
-from flask import Flask, jsonify
+from flask import Flask, jsonify, abort
 from google.cloud import storage
 import pymysql
 from google.cloud import videointelligence
@@ -20,10 +17,21 @@ def get_shots(video_id):
     storage_client = storage.Client.from_service_account_json('keys.json')
     bucket_name = 'galeata_magica_123'
     bucket = storage_client.get_bucket(bucket_name)
+
+    blobs = bucket.list_blobs(prefix=video_id + "/")
+    counter = 0
+    for blob in blobs:
+        counter += 1
+    if counter != 0:
+        return jsonify({"Counter": counter})
+
     blob = bucket.blob(video_id + '.mp4')
 
     with tempfile.NamedTemporaryFile() as temp_video:
         blob.download_to_file(temp_video)
+        if not blob.exists():
+            abort(404)
+            return
 
         shots = analyze_shots(video_id + '.mp4')
 
