@@ -56,7 +56,6 @@ def get_shots(video_id):
         cam.release()
         cv2.destroyAllWindows()
 
-    uploaded_image_counter += 1
     return jsonify({"Counter": uploaded_image_counter})
 
 
