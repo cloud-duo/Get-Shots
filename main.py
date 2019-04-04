@@ -45,10 +45,15 @@ def get_shots(video_id):
         currentframe = 0
         needed_frames = images.get_frames_number(shots)
         counter = 0
-
+        print('Needed frames: ', needed_frames)
         storage_client = storage.Client.from_service_account_json('keys.json')
         bucket_name = 'galeata_magica_123'
         bucket = storage_client.get_bucket(bucket_name)
+
+        frames_per_second = cam.get(cv2.CAP_PROP_FPS)
+
+        for i in range(0, len(needed_frames)):
+            needed_frames[i] = int(needed_frames[i] * frames_per_second)
 
         while True:
             # reading from frame
@@ -56,15 +61,28 @@ def get_shots(video_id):
             # print('---------- ', ret, frame)
             if ret:
                 if currentframe in needed_frames:
-                    with tempfile.TemporaryFile() as gcs_image:
-                        frame.tofile(gcs_image)
-                        gcs_image.seek(0)
-                        # data = cv2.imencode('.jpg', frame)[1].tostring()
+                    with tempfile.NamedTemporaryFile() as gcs_image:
+                        iName = "".join([str(gcs_image.name), ".jpg"])
+                        # save image to temp file
+                        cv2.imwrite(iName, frame)
+                        # frame.tofile(gcs_image)
+                        # gcs_image.seek(0)
+                        # data = cv2.imencode('.jpg', gcs_image)[1].tostring()
                         image_blob = bucket.blob(video_id + '/' + str(counter) + '.jpg')
-                        image_blob.upload_from_file(gcs_image)
+                        image_blob.upload_from_filename(iName)
+
+                        # with NamedTemporaryFile() as temp:
+                        #     # Extract name to the temp file
+                        #     iName = "".join([str(temp.name), ".jpg"])
+                        #     # save image to temp file
+                        #     cv2.imwrite(iName, duplicate_image)
+
+
                     # increasing counter so that it will
                     # show how many frames are created
+                    print('Counter: ', counter)
                     counter += 1
+                print('Counter: ', currentframe)
                 currentframe += 1
 
             else:
