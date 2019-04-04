@@ -1,12 +1,11 @@
 import os
+import tempfile
 
+import cv2
 import flask
-import sqlalchemy
-from flask import Flask, request
+from flask import Flask
 from google.cloud import storage
-import uuid
 import pymysql
-import argparse
 import images
 from google.cloud import videointelligence
 
@@ -23,32 +22,60 @@ def get_shots(video_id):
     bucket_name = 'galeata_magica_123'
     bucket = storage_client.get_bucket(bucket_name)
     blob = bucket.blob(video_id + '.mp4')
-    if not os.path.exists('Bucket'):
-        os.mkdir('Bucket')
-    destination_file_name = os.path.join('Bucket', video_id + '.mp4')
-    blob.download_to_filename(destination_file_name)
-    print('Blob {} downloaded to {}.'.format(
-        bucket_name,
-        destination_file_name))
 
-    # parser = argparse.ArgumentParser(
-    #     description=__doc__,
-    #     formatter_class=argparse.RawDescriptionHelpFormatter)
-    # parser.add_argument('path', help='GCS path for shot change detection.')
-    # args = parser.parse_args()
-    #
-    # analyze_shots(args.path)
-    shots = analyze_shots(video_id + '.mp4')
-    images.extract(video_id, shots)
+    # destination_file_name = os.path.join('Bucket', video_id + '.mp4')
+    # blob.download_to_file()
 
-    dirs = os.listdir(os.path.join('Bucket', video_id))
 
-    # This would print all the files and directories
-    for file in dirs:
-        image_blob = bucket.blob(video_id + '/' + file)
-        image_blob.upload_from_filename(os.path.join('Bucket', video_id, file))
+    #fd, path = tempfile.mkstemp()
+    with tempfile.NamedTemporaryFile() as temp_video:
+        blob.download_to_file(temp_video)
 
-    resp = flask.Response("Foo bar baz")
+        shots = analyze_shots(video_id + '.mp4')
+        #images.extract(video_id, shots, temp_video)
+
+####################################################################################################
+        # temp_filename = os.path.join(tempfile.gettempdir(), temp_video.name)
+        # local_temp_file = open(temp_filename, mode='w')
+        # temp_video.seek(0)
+        # local_temp_file.write(temp_video.read())
+        # local_temp_file.close()
+        temp_video.seek(0)
+        cam = cv2.VideoCapture(temp_video.name)
+        currentframe = 0
+        needed_frames = images.get_frames_number(shots)
+        counter = 0
+
+        storage_client = storage.Client.from_service_account_json('keys.json')
+        bucket_name = 'galeata_magica_123'
+        bucket = storage_client.get_bucket(bucket_name)
+
+        while True:
+            # reading from frame
+            ret, frame = cam.read()
+            # print('---------- ', ret, frame)
+            if ret:
+                if currentframe in needed_frames:
+                    with tempfile.TemporaryFile() as gcs_image:
+                        frame.tofile(gcs_image)
+                        gcs_image.seek(0)
+                        # data = cv2.imencode('.jpg', frame)[1].tostring()
+                        image_blob = bucket.blob(video_id + '/' + str(counter) + '.jpg')
+                        image_blob.upload_from_file(gcs_image)
+                    # increasing counter so that it will
+                    # show how many frames are created
+                    counter += 1
+                currentframe += 1
+
+            else:
+                break
+        # Release all space and windows once done
+        cam.release()
+        cv2.destroyAllWindows()
+####################################################################################################
+    #os.remove(path)
+
+    resp = flask.Response("200")
     resp.headers['Access-Control-Allow-Origin'] = '*'
     return resp
 
@@ -73,6 +100,13 @@ def analyze_shots(path):
         splitted_shots.append(new_tuple)
         print('\tShot {}: {} to {}'.format(i, start_time, end_time))
     return splitted_shots
+
+
+@app.after_request
+def after_request(response):
+    header = response.headers
+    header['Access-Control-Allow-Origin'] = '*'
+    return response
 
 
 if __name__ == '__main__':
